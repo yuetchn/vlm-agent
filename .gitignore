@@ -1,0 +1,14 @@
+config.yaml
+secrets.enc
+dist/
+models/
+vlm/.venv/
+
+# Internal / tooling
+.claude/
+_bmad/
+_bmad-output/
+skills/
+design-artifacts/
+需求讨论.txt
+项目需求.txt

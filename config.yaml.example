@@ -1,0 +1,17 @@
+# VLM 后端选择：grpc（本地 GPU 推理）或 http（远程 OpenAI Vision 兼容）
+vlm:
+  backend: grpc           # grpc | http
+  grpc_model_path: "models/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf"
+  http_endpoint: "http://localhost:11434/v1"   # vlm.backend=http 时有效
+  http_model_name: "qwen2.5-vl:7b"              # vlm.backend=http 时有效
+
+# LLM 决策接口（OpenAI API 兼容）
+llm:
+  endpoint: "https://api.openai.com/v1"
+  model: "gpt-4o"
+  # API key 通过 secrets.enc 加密存储，首次运行时提示输入
+
+# 游戏模式设置
+game:
+  mode: "ranked"          # ranked | casual | arcade
+  max_sessions: 0         # 0=无限制
