@@ -1,0 +1,22 @@
+{
+  "lobby_001.png": "lobby",
+  "lobby_002.png": "lobby",
+  "lobby_003.png": "lobby",
+  "matching_001.png": "matching",
+  "matching_002.png": "matching",
+  "in_flight_001.png": "in_flight",
+  "in_flight_002.png": "in_flight",
+  "parachuting_001.png": "parachuting",
+  "parachuting_002.png": "parachuting",
+  "looting_001.png": "looting",
+  "looting_002.png": "looting",
+  "looting_003.png": "looting",
+  "running_zone_001.png": "running_zone",
+  "running_zone_002.png": "running_zone",
+  "healing_001.png": "healing",
+  "healing_002.png": "healing",
+  "game_over_001.png": "game_over",
+  "game_over_002.png": "game_over",
+  "anomaly_001.png": "anomaly",
+  "anomaly_002.png": "anomaly"
+}
