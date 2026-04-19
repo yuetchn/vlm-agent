@@ -4,6 +4,11 @@ dist/
 models/
 vlm/.venv/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
 # Internal / tooling
 .claude/
 _bmad/
