@@ -27,5 +27,24 @@ check:
 spike qwen_path cogagent_path:
     cd vlm && .venv/Scripts/python spike.py --qwen-path "{{qwen_path}}" --cogagent-path "{{cogagent_path}}"
 
+# 准备 LoRA 训练数据集（labels.json → LLaMA-Factory ShareGPT 格式）
+lora-prepare:
+    cd vlm/lora_training && lora_venv/Scripts/python prepare_dataset.py
+
+# LoRA 微调训练（必须提供模型路径）
+# 用法: just lora-train "D:/models/Qwen2.5-VL-7B-Instruct"
+lora-train model_path:
+    cd vlm/lora_training && lora_venv/Scripts/python train.py --model-path "{{model_path}}"
+
+# 合并 LoRA 权重到 base model
+# 用法: just lora-export "D:/models/Qwen2.5-VL-7B-Instruct"
+lora-export model_path:
+    cd vlm/lora_training && lora_venv/Scripts/python export_model.py --model-path "{{model_path}}"
+
+# 通过 HTTP API 运行 Spike 验证（微调后验证用）
+# 用法: just spike-http  或  just spike-http "http://localhost:11434/v1" "qwen2.5-vl-finetuned:latest"
+spike-http endpoint="http://localhost:11434/v1" model="qwen2.5-vl-finetuned:latest":
+    cd vlm && .venv/Scripts/python spike.py --http-endpoint "{{endpoint}}" --http-model "{{model}}"
+
 clean:
     rm -rf dist/
