@@ -1,0 +1,10 @@
+output/
+logs/
+data/
+lora_venv/
+*.bin
+*.safetensors
+*.gguf
+qwen2vl_lora_config_run.yaml
+__pycache__/
+*.pyc

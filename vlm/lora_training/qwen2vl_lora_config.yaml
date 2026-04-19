@@ -1,0 +1,43 @@
+### model
+model_name_or_path: PLACEHOLDER  # 由 train.py --model-path 参数覆盖，勿手动修改
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### quantization（4070Ti 12GB VRAM 适配；16GB 可注释掉以获得更高精度）
+quantization_method: bitsandbytes
+quantization_bit: 4
+
+### dataset
+dataset: pubg_states_train        # 在 data/dataset_info.json 中注册
+eval_dataset: pubg_states_val     # 使用 prepare_dataset.py 生成的独立验证集（需 val.json 存在）
+dataset_dir: ./data
+template: qwen3_vl
+cutoff_len: 512
+
+### output
+output_dir: ./output/lora_weights
+logging_dir: ./logs
+save_steps: 50
+logging_steps: 10
+
+### training（12GB VRAM 安全配置；16GB 可适当增大 batch_size）
+num_train_epochs: 3
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 0.0001
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+fp16: true                         # 若显卡支持 bf16 可改为 bf16: true
+
+### evaluation
+eval_strategy: steps
+eval_steps: 50
+per_device_eval_batch_size: 1

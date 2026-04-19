@@ -1,18 +1,23 @@
-"""VLM 可行性 Spike 脚本 — 双模型对比识别验证。
+"""VLM 可行性 Spike 脚本 — 双模型对比识别验证 / HTTP 单模型验证。
 
-用法:
+用法（本地双模型模式）:
     python spike.py --qwen-path <hf_model_dir> --cogagent-path <hf_model_dir>
     python spike.py --dry-run --qwen-path dummy --cogagent-path dummy
 
+用法（HTTP 模式，验证微调后模型）:
+    python spike.py --http-endpoint http://localhost:11434/v1 --http-model qwen2.5-vl-finetuned:latest
+
 参数:
-    --qwen-path:       Qwen2.5-VL HuggingFace 模型目录（必填）
-    --cogagent-path:   CogAgent HuggingFace 模型目录（必填）
+    --qwen-path:       Qwen3-VL HuggingFace 模型目录（本地模式必填）
+    --cogagent-path:   第二个 VLM 模型目录（本地模式必填）
+    --http-endpoint:   OpenAI API 兼容端点（HTTP 模式，如 http://localhost:11434/v1）
+    --http-model:      HTTP 模式下的模型名（如 qwen2.5-vl-finetuned:latest）
     --screenshots-dir: 截图目录（默认 ../testdata/screenshots）
     --output:          报告输出路径（默认 ../testdata/spike_report.json）
     --dry-run:         跳过真实推理，固定返回 ground truth（验证流程用）
 
-VRAM 约束（4070Ti 12GB）：
-    两个模型顺序执行。先完整跑 Qwen2.5-VL 全部截图，释放 VRAM 后再跑 CogAgent。
+VRAM 约束：
+    本地模式：两个模型顺序执行。先完整跑 Qwen3-VL 全部截图，释放 VRAM 后再跑第二模型。
 """
 import argparse
 import gc
@@ -40,22 +45,30 @@ VALID_STATES = frozenset([
 
 # 推荐模型名映射（写入 config.yaml.example 的 http_model_name）
 MODEL_NAME_MAP = {
-    "qwen2vl": "qwen2.5-vl:7b",
-    "cogagent": "cogagent:9b",
+    "qwen2vl": "qwen3-vl:4b",
+    "cogagent": "qwen3-vl:2b",
 }
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="VLM 可行性 Spike — 双模型对比识别验证"
+        description="VLM 可行性 Spike — 双模型对比识别验证 / HTTP 单模型验证"
     )
     parser.add_argument(
-        "--qwen-path", required=True,
-        help="Qwen2.5-VL HuggingFace 模型目录路径（含 config.json 的目录，非 .gguf 文件）"
+        "--qwen-path", default=None,
+        help="Qwen3-VL HuggingFace 模型目录路径（本地模式必填，含 config.json 的目录，非 .gguf 文件）"
     )
     parser.add_argument(
-        "--cogagent-path", required=True,
-        help="CogAgent HuggingFace 模型目录路径（含 config.json 的目录，非 .gguf 文件）"
+        "--cogagent-path", default=None,
+        help="第二个 VLM 模型目录路径（本地模式必填，如 Qwen3-VL-2B，含 config.json 的目录，非 .gguf 文件）"
+    )
+    parser.add_argument(
+        "--http-endpoint", default=None,
+        help="OpenAI API 兼容端点（HTTP 模式，如 http://localhost:11434/v1）"
+    )
+    parser.add_argument(
+        "--http-model", default=None,
+        help="HTTP 模式下的模型名（如 qwen2.5-vl-finetuned:latest）"
     )
     parser.add_argument(
         "--screenshots-dir",
@@ -246,6 +259,151 @@ def run_inference_for_model(
     return results
 
 
+def _extract_json(text: str) -> str:
+    """从模型响应中提取 JSON 字符串，处理 markdown 代码块包裹格式。
+
+    模型有时返回 ```json\\n{...}\\n``` 格式，需剥离代码块标记。
+    """
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        end = len(lines) - 1 if lines and lines[-1].strip() == "```" else len(lines)
+        text = "\n".join(lines[1:end]).strip()
+    return text
+
+
+def run_http_inference(
+    endpoint: str,
+    model_name: str,
+    items: list,
+    screenshots_dir: str,
+    dry_run: bool,
+) -> list:
+    """通过 OpenAI API 兼容端点对单个模型运行全部截图推理。
+
+    Args:
+        endpoint:        OpenAI API 兼容 base_url（如 http://localhost:11434/v1）
+        model_name:      模型名（如 qwen2.5-vl-finetuned:latest）
+        items:           [(filename, ground_truth), ...] 列表
+        screenshots_dir: 截图目录路径
+        dry_run:         若 True，跳过真实推理，返回 ground truth 结果
+
+    Returns:
+        [{"predicted": str, "confidence": float, "correct": bool, "latency_ms": float}, ...]
+    """
+    results = []
+
+    if dry_run:
+        print(f"  [dry-run] 跳过 HTTP 推理，使用 ground truth 作为预测结果")
+        for fname, gt in items:
+            results.append({
+                "predicted": gt,
+                "confidence": 0.9,
+                "correct": True,
+                "latency_ms": 1.0,
+            })
+        return results
+
+    import base64
+    from openai import OpenAI
+
+    client = OpenAI(base_url=endpoint, api_key="ollama")
+    print(f"  HTTP 端点: {endpoint}，模型: {model_name}")
+    print(f"  开始推理 {len(items)} 张截图...")
+
+    for i, (fname, gt) in enumerate(items, 1):
+        fpath = os.path.join(screenshots_dir, fname)
+        with open(fpath, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+
+        t0 = time.perf_counter()
+        try:
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                    {"type": "text", "text": SPIKE_SKILL_CONTEXT},
+                ]}],
+                max_tokens=100,
+            )
+            result_str = resp.choices[0].message.content or ""
+        except Exception as exc:
+            print(f"  [{i:2d}/{len(items)}] {fname}: HTTP 错误 {exc}", file=sys.stderr)
+            results.append({
+                "predicted": "unknown",
+                "confidence": 0.0,
+                "correct": False,
+                "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
+            })
+            continue
+
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        try:
+            data = json.loads(_extract_json(result_str))
+            predicted = data.get("state", "unknown")
+            confidence = float(data.get("confidence", 0.0))
+        except (json.JSONDecodeError, AttributeError, ValueError):
+            predicted = "unknown"
+            confidence = 0.0
+
+        correct = (predicted == gt)
+        results.append({
+            "predicted": predicted,
+            "confidence": confidence,
+            "correct": correct,
+            "latency_ms": round(latency_ms, 1),
+        })
+        status_icon = "✓" if correct else "✗"
+        print(f"  [{i:2d}/{len(items)}] {fname}: {status_icon} predicted={predicted!r} gt={gt!r} ({latency_ms:.1f}ms)")
+
+    return results
+
+
+def build_http_report(
+    items: list,
+    http_results: list,
+    http_stats: dict,
+    model_name: str,
+    overall_status: str,
+) -> dict:
+    """构建 HTTP 模式的 spike_report.json 数据结构（单模型）。"""
+    tz_cst = timezone(timedelta(hours=8))
+    timestamp = datetime.now(tz=tz_cst).strftime("%Y-%m-%dT%H:%M:%S+08:00")
+
+    results_list = []
+    for (fname, gt), hr in zip(items, http_results):
+        results_list.append({
+            "filename": fname,
+            "ground_truth": gt,
+            "http_model": {
+                "predicted": hr["predicted"],
+                "confidence": hr["confidence"],
+                "correct": hr["correct"],
+                "latency_ms": hr["latency_ms"],
+            },
+        })
+
+    if overall_status == "PASS":
+        note = f"HTTP 模式验证通过: {model_name}，可进入 V1.0 开发"
+    elif overall_status == "REVIEW":
+        note = "HTTP 模式: 准确率待提升，建议继续微调"
+    else:
+        note = "HTTP 模式: 准确率不足，需追加标注数据重新微调"
+
+    return {
+        "timestamp": timestamp,
+        "total_screenshots": len(items),
+        "models": {
+            "http_model": dict(http_stats, model_name=model_name),
+        },
+        "overall_status": overall_status,
+        "recommended_model": model_name if overall_status == "PASS" else None,
+        "note": note,
+        "results": results_list,
+    }
+
+
 def compute_model_stats(items: list, results: list) -> dict:
     """计算模型推理统计信息。
 
@@ -367,11 +525,11 @@ def print_summary(qwen_stats: dict, cogagent_stats: dict, overall_status: str, r
     print("\n" + "=" * 60)
     print("📊 Spike 验证结果摘要")
     print("=" * 60)
-    print(f"  Qwen2.5-VL  准确率: {qwen_stats['accuracy']:.1%}  "
+    print(f"  Qwen3-VL    准确率: {qwen_stats['accuracy']:.1%}  "
           f"({qwen_stats['correct']}/{qwen_stats['total']})  "
           f"平均延迟: {qwen_stats['avg_latency_ms']:.1f}ms  "
           f"[{qwen_stats['status']}]")
-    print(f"  CogAgent    准确率: {cogagent_stats['accuracy']:.1%}  "
+    print(f"  Qwen3-VL-2B 准确率: {cogagent_stats['accuracy']:.1%}  "
           f"({cogagent_stats['correct']}/{cogagent_stats['total']})  "
           f"平均延迟: {cogagent_stats['avg_latency_ms']:.1f}ms  "
           f"[{cogagent_stats['status']}]")
@@ -398,30 +556,99 @@ def main():
     screenshots_dir = os.path.normpath(args.screenshots_dir)
     output_path = os.path.normpath(args.output)
 
+    # 参数验证：HTTP 模式 vs 本地模式
+    http_mode = args.http_endpoint is not None or args.http_model is not None
+    local_mode = args.qwen_path is not None or args.cogagent_path is not None
+
+    if http_mode and local_mode:
+        print(
+            "ERROR: --http-endpoint/--http-model 与 --qwen-path/--cogagent-path 不能同时使用",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not http_mode and not args.dry_run:
+        if args.qwen_path is None or args.cogagent_path is None:
+            print(
+                "ERROR: 本地模式需要同时提供 --qwen-path 和 --cogagent-path，"
+                "或使用 --http-endpoint/--http-model 进入 HTTP 模式",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if http_mode and (args.http_endpoint is None or args.http_model is None):
+        print(
+            "ERROR: HTTP 模式需要同时提供 --http-endpoint 和 --http-model",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     print(f"🔍 VLM 可行性 Spike 启动")
     print(f"   截图目录: {screenshots_dir}")
     print(f"   输出报告: {output_path}")
     if args.dry_run:
         print("   模式: --dry-run（跳过真实推理）")
+    elif http_mode:
+        print(f"   模式: HTTP（{args.http_endpoint}，模型: {args.http_model}）")
 
     # 加载标注文件，验证截图文件存在
     labels = load_labels(screenshots_dir)
     items = list(labels.items())
     print(f"   截图数量: {len(items)} 张\n")
 
-    # 顺序执行推理：先跑 Qwen2.5-VL，再跑 CogAgent
-    print("📌 [1/2] 开始 Qwen2.5-VL 推理...")
+    exit_codes = {"PASS": 0, "REVIEW": 1, "FAIL": 2}
+
+    # ── HTTP 模式 ────────────────────────────────────────────────
+    if http_mode:
+        print("📌 HTTP 模式推理...")
+        http_results = run_http_inference(
+            endpoint=args.http_endpoint,
+            model_name=args.http_model,
+            items=items,
+            screenshots_dir=screenshots_dir,
+            dry_run=args.dry_run,
+        )
+        http_stats = compute_model_stats(items, http_results)
+        overall_status = determine_model_status(http_stats["accuracy"])
+        report = build_http_report(
+            items, http_results, http_stats, args.http_model, overall_status
+        )
+        write_report(report, output_path)
+
+        print("\n" + "=" * 60)
+        print("📊 Spike HTTP 验证结果")
+        print("=" * 60)
+        print(
+            f"  {args.http_model:40s}: {http_stats['accuracy']:.1%}  "
+            f"({http_stats['correct']}/{http_stats['total']})  "
+            f"平均延迟: {http_stats['avg_latency_ms']:.1f}ms  "
+            f"[{http_stats['status']}]"
+        )
+        print("=" * 60)
+        if overall_status == "PASS":
+            print(f"✅ PASS — 微调验证通过，可进入 V1.0 开发")
+        elif overall_status == "REVIEW":
+            print(f"⚠️ REVIEW — 准确率: {http_stats['accuracy']:.1%}，建议追加标注数据")
+        else:
+            print(f"❌ FAIL — 准确率: {http_stats['accuracy']:.1%}，需追加标注数据重新微调")
+
+        sys.exit(exit_codes.get(overall_status, 2))
+
+    # ── 本地双模型模式 ────────────────────────────────────────────
+    # 顺序执行推理：先跑 Qwen3-VL-4B（qwen_path），再跑 Qwen3-VL-2B（cogagent_path）
+    # 两路均使用 qwen3vl 推理路径（同架构不同尺寸），cogagent_path/cogagent_results 变量名保持兼容
+    print("📌 [1/2] 开始 Qwen3-VL 推理...")
     qwen_results = run_inference_for_model(
-        model_key="qwen2vl",
+        model_key="qwen3vl",
         model_path=args.qwen_path,
         items=items,
         screenshots_dir=screenshots_dir,
         dry_run=args.dry_run,
     )
 
-    print("\n📌 [2/2] 开始 CogAgent 推理...")
+    print("\n📌 [2/2] 开始第二模型推理...")
     cogagent_results = run_inference_for_model(
-        model_key="cogagent",
+        model_key="qwen3vl",
         model_path=args.cogagent_path,
         items=items,
         screenshots_dir=screenshots_dir,
@@ -450,8 +677,6 @@ def main():
     # 打印摘要
     print_summary(qwen_stats, cogagent_stats, overall_status, recommended)
 
-    # 退出码：PASS=0, REVIEW=1, FAIL=2
-    exit_codes = {"PASS": 0, "REVIEW": 1, "FAIL": 2}
     sys.exit(exit_codes.get(overall_status, 2))
 
 
