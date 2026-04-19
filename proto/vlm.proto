@@ -1,0 +1,30 @@
+syntax = "proto3";
+package vlm;
+
+// Version: 1.0.0 - 2026-04-13
+
+option go_package = "github.com/zerfx/new_jzd/internal/vlmpb;vlmpb";
+
+service VLMService {
+  rpc Infer(InferRequest) returns (InferResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message InferRequest {
+  bytes screenshot = 1;     // PNG 格式截图
+  string skill_context = 2; // Skill 文件正文（注入 VLM prompt）
+  string state_hint = 3;    // 当前 FSM 状态（辅助推理）
+}
+
+message InferResponse {
+  string result = 1;        // 推理结果（JSON 字符串）
+  float confidence = 2;     // 置信度（0.0-1.0）
+  string error_message = 3; // 错误信息（空字符串表示无错误）
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool ready = 1;     // VLM 模型是否已就绪
+  string version = 2; // vlm_server 版本号
+}
