@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/zerfx/new_jzd/internal/checker"
 	"github.com/zerfx/new_jzd/internal/config"
+	"github.com/zerfx/new_jzd/internal/logger"
+	"github.com/zerfx/new_jzd/internal/process"
 )
 
 func main() {
@@ -47,5 +52,55 @@ func main() {
 		fmt.Fprintf(os.Stderr, "配置加载失败: %v\n", err)
 		os.Exit(1)
 	}
-	_ = cfg // 非 --check 模式：后续 Story 填充
+
+	// 1. 初始化日志
+	if err := logger.Init(filepath.Join(exeDir, "logs")); err != nil {
+		fmt.Fprintf(os.Stderr, "日志初始化失败: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Close()
+
+	// 2. 前置检查（复用 checker 包）
+	// 注意：config.Load() 已解密 secrets.enc；check_config 内部会再独立解密一次做校验
+	// 这是 Story 2-1 的设计 trade-off，非 bug，不必修改
+	results, allPassed := checker.RunAll(cfg)
+	checker.PrintResults(results)
+	if !allPassed {
+		os.Exit(1)
+	}
+
+	// 3. 信号感知 context（支持 Ctrl+C 退出 + anomaly 触发 cancel）
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	// 4. VLM 就绪
+	var mgr *process.Manager
+	switch cfg.VLM.Backend {
+	case "grpc":
+		mgr = process.NewManager(cfg)
+		if err := mgr.Start(ctx); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer mgr.Stop() // 确保退出时子进程被回收
+		// 5. 健康监控（anomaly 触发 cancel，主循环 <-ctx.Done() 退出）
+		hm := process.NewHealthMonitor(mgr)
+		hm.OnMaxRestartsExceeded = func() {
+			fmt.Fprintln(os.Stderr, "VLM 进程多次崩溃，系统进入异常状态")
+			cancel() // 触发优雅退出；FSM anomaly 状态在 Story 3.x 实现
+		}
+		go hm.Run(ctx)
+	case "http":
+		if err := process.StartHTTP(cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "未知 VLM backend：%s\n", cfg.VLM.Backend)
+		os.Exit(1)
+	}
+
+	// 6. FSM 主循环占位（Story 3.1 填充）
+	// 禁止用 select{}：无法响应 Ctrl+C 或 anomaly cancel
+	<-ctx.Done()
 }
