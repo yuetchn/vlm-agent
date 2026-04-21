@@ -1,0 +1,345 @@
+{
+  "timestamp": "2026-04-20T00:13:29+08:00",
+  "total_screenshots": 20,
+  "models": {
+    "qwen2vl": {
+      "accuracy": 0.55,
+      "correct": 11,
+      "total": 20,
+      "avg_latency_ms": 2084.5,
+      "status": "FAIL"
+    },
+    "cogagent": {
+      "accuracy": 0.5,
+      "correct": 10,
+      "total": 20,
+      "avg_latency_ms": 1635.2,
+      "status": "FAIL"
+    }
+  },
+  "overall_status": "FAIL",
+  "recommended_model": null,
+  "note": "进入 Story 1.8 LoRA 微调流程",
+  "results": [
+    {
+      "filename": "lobby_001.png",
+      "ground_truth": "lobby",
+      "qwen2vl": {
+        "predicted": "lobby",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 2714.8
+      },
+      "cogagent": {
+        "predicted": "lobby",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1520.2
+      }
+    },
+    {
+      "filename": "lobby_002.png",
+      "ground_truth": "lobby",
+      "qwen2vl": {
+        "predicted": "lobby",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1997.9
+      },
+      "cogagent": {
+        "predicted": "lobby",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1848.4
+      }
+    },
+    {
+      "filename": "lobby_003.png",
+      "ground_truth": "lobby",
+      "qwen2vl": {
+        "predicted": "lobby",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1838.9
+      },
+      "cogagent": {
+        "predicted": "lobby",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 2121.9
+      }
+    },
+    {
+      "filename": "matching_001.png",
+      "ground_truth": "matching",
+      "qwen2vl": {
+        "predicted": "lobby",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 2177.5
+      },
+      "cogagent": {
+        "predicted": "matching",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1692.6
+      }
+    },
+    {
+      "filename": "matching_002.png",
+      "ground_truth": "matching",
+      "qwen2vl": {
+        "predicted": "lobby",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 2223.6
+      },
+      "cogagent": {
+        "predicted": "matching",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1534.0
+      }
+    },
+    {
+      "filename": "in_flight_001.png",
+      "ground_truth": "in_flight",
+      "qwen2vl": {
+        "predicted": "parachuting",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 2294.7
+      },
+      "cogagent": {
+        "predicted": "parachuting",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1525.2
+      }
+    },
+    {
+      "filename": "in_flight_002.png",
+      "ground_truth": "in_flight",
+      "qwen2vl": {
+        "predicted": "parachuting",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 1939.9
+      },
+      "cogagent": {
+        "predicted": "parachuting",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1508.5
+      }
+    },
+    {
+      "filename": "parachuting_001.png",
+      "ground_truth": "parachuting",
+      "qwen2vl": {
+        "predicted": "parachuting",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1883.4
+      },
+      "cogagent": {
+        "predicted": "parachuting",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1755.2
+      }
+    },
+    {
+      "filename": "parachuting_002.png",
+      "ground_truth": "parachuting",
+      "qwen2vl": {
+        "predicted": "parachuting",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1944.7
+      },
+      "cogagent": {
+        "predicted": "parachuting",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1954.7
+      }
+    },
+    {
+      "filename": "looting_001.png",
+      "ground_truth": "looting",
+      "qwen2vl": {
+        "predicted": "looting",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 2227.3
+      },
+      "cogagent": {
+        "predicted": "lobby",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1529.7
+      }
+    },
+    {
+      "filename": "looting_002.png",
+      "ground_truth": "looting",
+      "qwen2vl": {
+        "predicted": "anomaly",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 2191.4
+      },
+      "cogagent": {
+        "predicted": "anomaly",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1441.5
+      }
+    },
+    {
+      "filename": "looting_003.png",
+      "ground_truth": "looting",
+      "qwen2vl": {
+        "predicted": "looting",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 2168.5
+      },
+      "cogagent": {
+        "predicted": "game_over",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1534.9
+      }
+    },
+    {
+      "filename": "running_zone_001.png",
+      "ground_truth": "running_zone",
+      "qwen2vl": {
+        "predicted": "anomaly",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 1849.4
+      },
+      "cogagent": {
+        "predicted": "in_flight",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1294.4
+      }
+    },
+    {
+      "filename": "running_zone_002.png",
+      "ground_truth": "running_zone",
+      "qwen2vl": {
+        "predicted": "anomaly",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 1881.3
+      },
+      "cogagent": {
+        "predicted": "in_flight",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1374.8
+      }
+    },
+    {
+      "filename": "healing_001.png",
+      "ground_truth": "healing",
+      "qwen2vl": {
+        "predicted": "looting",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 1933.4
+      },
+      "cogagent": {
+        "predicted": "healing",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1680.0
+      }
+    },
+    {
+      "filename": "healing_002.png",
+      "ground_truth": "healing",
+      "qwen2vl": {
+        "predicted": "looting",
+        "confidence": 0.98,
+        "correct": false,
+        "latency_ms": 2255.0
+      },
+      "cogagent": {
+        "predicted": "anomaly",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1800.5
+      }
+    },
+    {
+      "filename": "game_over_001.png",
+      "ground_truth": "game_over",
+      "qwen2vl": {
+        "predicted": "game_over",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 2083.8
+      },
+      "cogagent": {
+        "predicted": "game_over",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 1678.1
+      }
+    },
+    {
+      "filename": "game_over_002.png",
+      "ground_truth": "game_over",
+      "qwen2vl": {
+        "predicted": "game_over",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 2219.6
+      },
+      "cogagent": {
+        "predicted": "game_over",
+        "confidence": 0.95,
+        "correct": true,
+        "latency_ms": 2015.3
+      }
+    },
+    {
+      "filename": "anomaly_001.png",
+      "ground_truth": "anomaly",
+      "qwen2vl": {
+        "predicted": "anomaly",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1935.6
+      },
+      "cogagent": {
+        "predicted": "game_over",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1519.1
+      }
+    },
+    {
+      "filename": "anomaly_002.png",
+      "ground_truth": "anomaly",
+      "qwen2vl": {
+        "predicted": "anomaly",
+        "confidence": 0.98,
+        "correct": true,
+        "latency_ms": 1928.5
+      },
+      "cogagent": {
+        "predicted": "game_over",
+        "confidence": 0.95,
+        "correct": false,
+        "latency_ms": 1374.3
+      }
+    }
+  ]
+}

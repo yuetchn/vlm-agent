@@ -16,6 +16,29 @@ var (
 	ErrSecretsCorrupted = errors.New("config: secrets file corrupted or wrong machine")
 )
 
+// LoadYAMLOnly 仅做 YAML 解析 + Validate()，不加载 secrets.enc。
+// 适用于 --check 模式：secrets.enc 可能不存在（首次安装），由 CheckConfig 单独验证。
+func LoadYAMLOnly(configPath string) (*Config, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w", ErrConfigNotFound)
+		}
+		return nil, fmt.Errorf("config: read config: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrConfigInvalid, fmt.Errorf("config: load yaml: %w", err))
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrConfigInvalid, err)
+	}
+
+	return &cfg, nil
+}
+
 // Load 从 configPath 加载配置并从 secretsPath 解密敏感字段。
 //
 // 流程：

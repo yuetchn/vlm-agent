@@ -9,7 +9,7 @@ import json
 import logging
 import threading
 
-MODEL_TYPES = {"qwen2vl", "cogagent", "internvl", "generic"}
+MODEL_TYPES = {"qwen2vl", "cogagent", "internvl", "generic", "qwen3vl"}
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class VLMModel:
                     self._model_type, self._model_path, self._device_map)
         loaders = {
             "qwen2vl": self._load_qwen2vl,
+            "qwen3vl": self._load_qwen3vl,
             "cogagent": self._load_cogagent,
             "internvl": self._load_internvl,
             "generic": self._load_generic,
@@ -82,6 +83,8 @@ class VLMModel:
         try:
             if self._model_type == "qwen2vl":
                 return self._infer_qwen2vl(image, prompt)
+            elif self._model_type == "qwen3vl":
+                return self._infer_qwen3vl(image, prompt)
             elif self._model_type == "cogagent":
                 return self._infer_cogagent(image, prompt)
             elif self._model_type == "internvl":
@@ -108,6 +111,18 @@ class VLMModel:
             load_kwargs["load_in_4bit"] = True
         self._processor = AutoProcessor.from_pretrained(self._model_path)
         self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model_path, **load_kwargs
+        )
+
+    def _load_qwen3vl(self) -> None:
+        import torch
+        from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
+        load_kwargs = {"device_map": self._device_map}
+        if self._device_map != "cpu":
+            # 16GB VRAM 足够跑 4B bf16（约 8GB），无需量化
+            load_kwargs["torch_dtype"] = torch.bfloat16
+        self._processor = AutoProcessor.from_pretrained(self._model_path)
+        self._model = Qwen3VLForConditionalGeneration.from_pretrained(
             self._model_path, **load_kwargs
         )
 
@@ -191,6 +206,29 @@ class VLMModel:
         conf = max(0.0, min(1.0, confidence))
         result = json.dumps({"state": "unknown", "action": "none", "confidence": conf})
         return result, conf
+
+    def _infer_qwen3vl(self, image, prompt: str) -> tuple:
+        # Qwen3-VL 使用 chat template，enable_thinking=False 关闭思维链模式，直接输出结果
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {"type": "text", "text": prompt},
+            ],
+        }]
+        text = self._processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
+        inputs = self._processor(
+            text=[text], images=[image], return_tensors="pt", padding=True
+        ).to(self._model.device)
+        outputs = self._model.generate(
+            **inputs, max_new_tokens=256, return_dict_in_generate=True, output_scores=True
+        )
+        confidence = self._extract_confidence(outputs)
+        generated_ids = outputs.sequences[:, inputs["input_ids"].shape[1]:]
+        result_text = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        return self._parse_output_json(result_text, confidence)
 
     def _infer_qwen2vl(self, image, prompt: str) -> tuple:
         # 使用 processor(images, text) 方式，apply_chat_template 在多数版本返回 tensor 而非 dict
