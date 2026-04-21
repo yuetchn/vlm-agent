@@ -8,11 +8,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/zerfx/new_jzd/internal/checker"
 	"github.com/zerfx/new_jzd/internal/config"
 	"github.com/zerfx/new_jzd/internal/logger"
 	"github.com/zerfx/new_jzd/internal/process"
+	"github.com/zerfx/new_jzd/internal/version"
 )
 
 func main() {
@@ -53,12 +56,35 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 打印当前版本号（AC#1）
+	fmt.Printf("new_jzd %s\n", version.Version)
+
 	// 1. 初始化日志
 	if err := logger.Init(filepath.Join(exeDir, "logs")); err != nil {
 		fmt.Fprintf(os.Stderr, "日志初始化失败: %v\n", err)
 		os.Exit(1)
 	}
 	defer logger.Close()
+
+	// 后台版本检查 goroutine（AC#2 #3 #4）
+	go func() {
+		vctx, vcancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer vcancel()
+		latest, err := version.Check(vctx, cfg.VersionCheckURL)
+		if err != nil || latest == "" {
+			return // 静默跳过
+		}
+		updateAvailable := version.IsNewer(latest, version.Version)
+		if updateAvailable {
+			fmt.Printf("[提示] 新版本 %s 可用，请访问 GitHub Releases 下载\n", latest)
+		}
+		log.Logger.Info().
+			Str("event", string(logger.VersionCheck)).
+			Str("current", version.Version).
+			Str("latest", latest).
+			Bool("update_available", updateAvailable).
+			Msg("版本检查完成")
+	}()
 
 	// 2. 前置检查（复用 checker 包）
 	// 注意：config.Load() 已解密 secrets.enc；check_config 内部会再独立解密一次做校验
