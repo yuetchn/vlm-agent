@@ -30,10 +30,11 @@ type SecretsData struct {
 
 // Config 顶层配置 struct
 type Config struct {
-	VLM     VLMConfig   `yaml:"vlm"`
-	LLM     LLMConfig   `yaml:"llm"`
-	Game    GameConfig  `yaml:"game"`
-	Secrets SecretsData `yaml:"-" json:"-"` // 不从 yaml/json 读取，从 secrets.enc 填充；json:"-" 防止 json.Marshal 明文泄露
+	VLM             VLMConfig   `yaml:"vlm"`
+	LLM             LLMConfig   `yaml:"llm"`
+	Game            GameConfig  `yaml:"game"`
+	VersionCheckURL string      `yaml:"version_check_url"` // 可选，空字符串跳过版本检查
+	Secrets         SecretsData `yaml:"-" json:"-"`        // 不从 yaml/json 读取，从 secrets.enc 填充；json:"-" 防止 json.Marshal 明文泄露
 }
 
 // Validate 校验配置字段合法性，返回包含具体字段路径的错误（NFR19）

@@ -15,3 +15,6 @@ llm:
 game:
   mode: "ranked"          # ranked | casual | arcade
   max_sessions: 0         # 0=无限制
+
+# 版本检查（可选，留空则跳过）
+version_check_url: "https://api.github.com/repos/zerfx/new_jzd/releases/latest"
