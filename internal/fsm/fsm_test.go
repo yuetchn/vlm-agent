@@ -24,7 +24,7 @@ func newTestController(t *testing.T, vlmFn func(context.Context, []byte, string,
 			ConfidenceThreshold: 0.85,
 		},
 	}
-	ctrl := NewController(mockVLM, mockInput, mockCapture, mockSkill)
+	ctrl := NewController(mockVLM, mockInput, mockCapture, mockSkill, nil)
 	return ctrl, mockVLM, mockInput, mockCapture
 }
 
